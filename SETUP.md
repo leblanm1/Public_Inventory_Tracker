@@ -161,9 +161,12 @@ usable for local testing but operating systems may display an unknown-publisher
 warning.
 
 The packaged application creates local immutable JSON and Excel backups by
-default. GitHub synchronization is not required and is not yet part of the
-desktop package; it can be added later through GitHub's API so users do not
-need to install Git.
+default. GitHub synchronization is optional and does not require Git. From
+the Backup Export menu, choose **Upload backup to GitHub**, then provide the
+account, repository, branch, backup folder, and a fine-grained GitHub token.
+Limit that token to the selected repository with **Contents: Read and write**
+permission. The token is used for the upload request only and is not saved in
+the inventory data.
 
 ## 3. Clone the repository
 

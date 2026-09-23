@@ -482,9 +482,15 @@ Authenticode certificate to avoid security warnings. Unsigned packages are
 appropriate for local testing but may be blocked or shown as untrusted when
 downloaded by other users.
 
-The packaged application always keeps local immutable backups. The current
-package does not require GitHub or a Git installation; GitHub off-site sync
-remains an optional follow-up feature to implement through the GitHub API.
+The packaged application always keeps local immutable backups. The package
+does not require GitHub or a Git installation. From the Backup Export menu,
+users can optionally upload the day's JSON, Excel, and manifest backups to a
+GitHub repository through the GitHub API. The token is requested for that
+upload only and is not saved in the inventory data.
+
+For GitHub uploads, create a fine-grained personal access token limited to the
+selected repository with **Contents: Read and write** permission. A GitHub
+account is not required when using local backups only.
 
 ### Quick Reference
 

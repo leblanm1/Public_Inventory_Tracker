@@ -344,6 +344,52 @@ async function createPointInTimeBackup(
   };
 }
 
+function githubContentUrl(owner: string, repo: string, filePath: string): string {
+  const encodedPath = filePath.split("/").map(segment => encodeURIComponent(segment)).join("/");
+  return `https://api.github.com/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/contents/${encodedPath}`;
+}
+
+async function uploadGithubBackupFile(
+  owner: string,
+  repo: string,
+  filePath: string,
+  content: Buffer,
+  token: string,
+  branch: string,
+  message: string
+): Promise<void> {
+  const headers = {
+    Accept: "application/vnd.github+json",
+    Authorization: `Bearer ${token}`,
+    "X-GitHub-Api-Version": "2022-11-28",
+    "User-Agent": "Lab-Inventory-Tracker"
+  };
+  const url = githubContentUrl(owner, repo, filePath);
+  let sha: string | undefined;
+  const existingResponse = await fetch(`${url}?ref=${encodeURIComponent(branch)}`, { headers });
+  if (existingResponse.ok) {
+    const existing = await existingResponse.json() as { sha?: string };
+    sha = existing.sha;
+  } else if (existingResponse.status !== 404) {
+    throw new Error(`GitHub could not check ${filePath} (${existingResponse.status}).`);
+  }
+
+  const response = await fetch(url, {
+    method: "PUT",
+    headers: { ...headers, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      message,
+      content: content.toString("base64"),
+      branch,
+      ...(sha ? { sha } : {})
+    })
+  });
+  if (!response.ok) {
+    const detail = await response.text();
+    throw new Error(`GitHub rejected ${filePath} (${response.status}): ${detail.slice(0, 240)}`);
+  }
+}
+
 async function loadSnapshotArchive(): Promise<SnapshotRecord[]> {
   try {
     if (!existsSync(SNAPSHOT_ARCHIVE_FILE)) return [];
@@ -1794,6 +1840,57 @@ async function startServer() {
       res.send(JSON.stringify(state, null, 2));
     } catch (err) {
       res.status(500).json({ error: "Failed to export data" });
+    }
+  });
+
+  // Upload today's local immutable backups to a user-selected GitHub repository.
+  // The token is accepted for this request only and is never persisted locally.
+  app.post("/api/github-backup", async (req, res) => {
+    try {
+      const { owner, repo, token, branch = "main", folder = "backups/immutable-backups" } = req.body as {
+        owner?: string;
+        repo?: string;
+        token?: string;
+        branch?: string;
+        folder?: string;
+      };
+      if (!owner || !repo || !token) {
+        res.status(400).json({ error: "GitHub owner, repository, and token are required." });
+        return;
+      }
+      if (!/^[A-Za-z0-9_.-]+$/.test(owner) || !/^[A-Za-z0-9_.-]+$/.test(repo)) {
+        res.status(400).json({ error: "Invalid GitHub owner or repository name." });
+        return;
+      }
+      if (!/^[A-Za-z0-9_.-]+$/.test(branch) || folder.startsWith("/") || folder.split("/").some(segment => !segment || segment === "." || segment === "..")) {
+        res.status(400).json({ error: "Invalid GitHub branch or backup folder." });
+        return;
+      }
+
+      await ensureDailyImmutableBackup();
+      const dateStamp = getDateStamp();
+      const fileNames = [
+        `inventory-${dateStamp}.json`,
+        `inventory-${dateStamp}.xlsx`,
+        "manifest.jsonl"
+      ];
+      for (const fileName of fileNames) {
+        const localPath = path.join(IMMUTABLE_BACKUP_DIR, fileName);
+        const remotePath = `${folder.replace(/\/$/, "")}/${fileName}`;
+        await uploadGithubBackupFile(
+          owner,
+          repo,
+          remotePath,
+          await fs.readFile(localPath),
+          token,
+          branch,
+          `backup: inventory ${dateStamp}`
+        );
+      }
+      res.json({ success: true, files: fileNames, branch, folder });
+    } catch (err) {
+      console.error("GitHub backup failed:", err instanceof Error ? err.message : err);
+      res.status(502).json({ error: err instanceof Error ? err.message : "GitHub backup failed." });
     }
   });
 

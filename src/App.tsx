@@ -29,7 +29,8 @@ import {
   ScanLine,
   Menu,
   PanelRightClose,
-  PanelRightOpen
+  PanelRightOpen,
+  CloudUpload
 } from "lucide-react";
 import { StorageUnit, Shelf, Box, Sample, AuditLog, InventoryState, Rack, Drawer, AuditSnapshot } from "./types.js";
 import { convertInventoryToCSV, syncSamplesToBoxLocation } from "./utils.js";
@@ -1265,6 +1266,35 @@ export default function App() {
       handleCSVExport();
     } catch {
       alert("Failed to export backup files.");
+    }
+  };
+
+  const handleGithubBackup = async () => {
+    const owner = window.prompt("GitHub account or organization:");
+    if (!owner) return;
+    const repo = window.prompt("GitHub repository name:");
+    if (!repo) return;
+    const folder = window.prompt("Backup folder in the repository:", "backups/immutable-backups");
+    if (folder === null) return;
+    const branch = window.prompt("GitHub branch:", "main");
+    if (!branch) return;
+    const token = window.prompt("GitHub token with Contents: Read and write permission (it will not be saved):");
+    if (!token) return;
+
+    try {
+      const res = await authFetch("/api/github-backup", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ owner, repo, folder, branch, token })
+      });
+      const result = await res.json() as { error?: string; files?: string[] };
+      if (!res.ok) {
+        alert(result.error || "GitHub backup failed.");
+        return;
+      }
+      alert(`Uploaded ${result.files?.length || 0} backup files to GitHub.`);
+    } catch {
+      alert("GitHub backup failed. Local backups remain available.");
     }
   };
 
@@ -4048,6 +4078,12 @@ export default function App() {
               >
                 <Upload className="h-3.5 w-3.5 text-slate-400" />
                 <span>Import JSON backup</span>
+              </button>
+              <button
+                onClick={handleGithubBackup}
+                className="w-full text-left px-3 py-2 hover:bg-slate-50 rounded text-xs text-slate-700 flex items-center gap-1.5"
+              >
+                <CloudUpload className="h-3.5 w-3.5 text-slate-400" /> Upload backup to GitHub
               </button>
             </div>
           </div>
