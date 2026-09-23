@@ -55,8 +55,60 @@ copy of that clean template repo.
 
 ## 2. Install prerequisites
 
-- **[Node.js](https://nodejs.org/)** 20 or later (LTS is fine).
-- **[Git](https://git-scm.com/downloads)**.
+- **[Node.js](https://nodejs.org/)** 20 or later. Choose the LTS release.
+- **[Git](https://git-scm.com/downloads)**, unless you download the repository
+  as a ZIP instead of cloning it.
+
+### Windows
+
+1. Download and run the **Node.js LTS Windows Installer** from
+   [nodejs.org](https://nodejs.org/en/download/). Keep the default settings and
+   leave **Add to PATH** enabled.
+2. Download and run **Git for Windows** from
+   [git-scm.com/download/win](https://git-scm.com/download/win). The default
+   installer settings are suitable for this project.
+3. Close and reopen PowerShell, then verify:
+
+   ```powershell
+   node --version
+   npm --version
+   git --version
+   ```
+
+   Node must be version 20 or later. If a command is not recognized, open a
+   new PowerShell window or restart Windows so the updated `PATH` is loaded.
+
+### macOS
+
+1. Install the Node.js LTS macOS package from
+   [nodejs.org](https://nodejs.org/en/download/).
+2. Install Git through Apple's Command Line Tools:
+
+   ```bash
+   xcode-select --install
+   ```
+
+   Accept the macOS dialog. If the tools are already installed, continue.
+3. Open a new Terminal window and run:
+
+   ```bash
+   node --version
+   npm --version
+   git --version
+   ```
+
+### Ubuntu or Debian-based Linux
+
+Install Git with:
+
+```bash
+sudo apt update
+sudo apt install git
+```
+
+Install Node.js 20 or later from the
+[official Node.js downloads](https://nodejs.org/en/download/), then verify
+`node`, `npm`, and `git` as shown above.
 
 Verify both installed correctly by opening a terminal (PowerShell on
 Windows, Terminal on macOS) and running:
@@ -65,6 +117,20 @@ Windows, Terminal on macOS) and running:
 node --version
 git --version
 ```
+
+### Option without Git
+
+On the repository's GitHub page, choose **Code → Download ZIP**, extract the
+folder, and continue with Step 4. This removes the Git requirement, but Node.js
+is still required for the local server.
+
+### Option without local installation
+
+A browser-only version is possible if an administrator deploys this app on a
+private server. Users then open the server URL and do not install Git or
+Node.js. The deployment administrator must configure `LAB_PASSPHRASE`, HTTPS,
+persistent storage, and backups. The current repository does not include a
+hosted service or a packaged desktop executable.
 
 ## 3. Clone the repository
 

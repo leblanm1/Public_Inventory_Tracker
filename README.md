@@ -114,8 +114,95 @@ Runs as a local web app. No database to install — all data is stored in a JSON
 
 ### Prerequisites
 
-- [Node.js](https://nodejs.org/) 20 or later
-- [Git](https://git-scm.com/)
+- [Node.js](https://nodejs.org/) 20 or later (the LTS installer is recommended)
+- [Git](https://git-scm.com/) (only needed when cloning the repository)
+
+### Install Node.js and Git
+
+The easiest setup is to install the official LTS versions. After installing,
+close and reopen your terminal so the new commands are added to `PATH`.
+
+#### Windows
+
+1. Download **Node.js LTS** from [nodejs.org](https://nodejs.org/en/download/).
+  Run the Windows Installer and keep the default options, including **Add to
+  PATH**.
+2. Download **Git for Windows** from [git-scm.com/download/win](https://git-scm.com/download/win).
+  Run the installer and keep the default options. This installs Git Bash and
+  makes `git` available in PowerShell and Command Prompt.
+3. Open a new PowerShell window and verify the installation:
+
+  ```powershell
+  node --version
+  npm --version
+  git --version
+  ```
+
+  `node --version` must report version 20 or later.
+
+If Windows says that `node` or `git` is not recognized, close every terminal
+window, open a new one, and try again. If it still fails, restart Windows;
+the installer may not have refreshed the system `PATH` yet.
+
+#### macOS
+
+1. Download the **Node.js LTS macOS installer** from
+  [nodejs.org](https://nodejs.org/en/download/) and accept the default options.
+2. Install Git using Apple's Command Line Tools. Open Terminal and run:
+
+  ```bash
+  xcode-select --install
+  ```
+
+  Accept the dialog. If macOS reports that the tools are already installed,
+  no action is needed. Alternatively, install Git from
+  [git-scm.com/download/mac](https://git-scm.com/download/mac).
+3. Open a new Terminal window and verify:
+
+  ```bash
+  node --version
+  npm --version
+  git --version
+  ```
+
+#### Ubuntu or other Debian-based Linux
+
+Install Git from the distribution packages, then install Node.js 20 or later
+from the official Node.js installer or a current NodeSource package. For
+Ubuntu, the Git command is:
+
+```bash
+sudo apt update
+sudo apt install git
+```
+
+Then install the Node.js LTS release from [nodejs.org](https://nodejs.org/en/download/)
+and verify:
+
+```bash
+node --version
+npm --version
+git --version
+```
+
+### Can users avoid installing anything?
+
+Yes, but it requires a different distribution model than the current local
+repository:
+
+- **Browser-only hosted version:** deploy the app on a private server or
+  managed hosting service. Users then need only a browser. The server must be
+  protected with `LAB_PASSPHRASE`, HTTPS, and a backup plan because inventory
+  data is stored on that server. This is the best true zero-install option.
+- **Packaged desktop release:** create a signed Windows/macOS application that
+  bundles Node.js and the app. Users would download and run it without
+  installing Git or Node.js. This repository does not currently publish such a
+  package; it requires a release build and platform-specific code signing.
+- **Download ZIP instead of Git:** users can download the repository as a ZIP
+  from GitHub and skip Git, but they still need Node.js to run the app.
+
+For the current repository, Node.js is required because the tracker runs as a
+local server. Git is optional if the user downloads a ZIP instead of cloning.
 
 ### Install and Run
 
