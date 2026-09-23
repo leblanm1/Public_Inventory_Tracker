@@ -1,0 +1,188 @@
+/**
+ * Types and Interfaces for Lab Inventory Tracker
+ */
+
+export type StorageType = 'freezer' | 'refrigerator' | 'room_temp';
+
+export interface StorageUnit {
+  id: string;
+  name: string;
+  type: StorageType;
+  isArchived?: boolean;
+  createdAt?: string;
+}
+
+export interface Shelf {
+  id: string;
+  storageId: string;
+  name: string;
+  cols?: number | null; // number of slots/racks across the shelf
+  isArchived?: boolean;
+  createdAt?: string;
+}
+
+export interface Rack {
+  id: string;
+  shelfId: string;
+  storageId: string;
+  name: string;
+  rows?: number | null; // rows/grid layout dimension for box slots
+  cols?: number | null; // columns/grid layout dimension for box slots
+  shelfCol?: number | null; // column slot position on the shelf
+  isArchived?: boolean;
+  createdAt?: string;
+}
+
+export interface Drawer {
+  id: string;
+  rackId: string;
+  shelfId: string;
+  storageId: string;
+  name: string;
+  boxCapacity?: number | null;
+  isArchived?: boolean;
+  createdAt?: string;
+}
+
+export interface Box {
+  id: string;
+  shelfId: string;
+  storageId: string;
+  rackId?: string | null;   // optional link to a rack inside the shelf
+  drawerId?: string | null; // optional link to a drawer inside the rack
+  drawerSlot?: number | null;
+  name: string;
+  rows: number | null; // null if free-form box (not grid)
+  cols: number | null; // null if free-form box (not grid)
+  shelfCol?: number | null; // column slot position on the shelf (if direct)
+  isArchived?: boolean;
+  createdAt?: string;
+}
+
+export interface Sample {
+  id: string;
+  storageId: string;
+  shelfId: string;
+  rackId?: string | null;   // optional link to a rack
+  drawerId?: string | null; // optional link to a drawer
+  boxId: string | null; // null if stored directly on a shelf or inside a drawer/rack without box
+  row: number | null;    // 1-indexed, null if not grid
+  col: number | null;    // 1-indexed, null if not grid
+  qty: number;
+  units: string;
+  isArchived?: boolean;
+
+  // Key visual/search fields
+  chemicalName: string;
+  casNumber: string;
+  itemType: string;
+  notes: string;
+
+  // Standard Lab Inventory Spreadsheet Headers (Mapping all user headers)
+  chemicalId: string;
+  lab: string;
+  phase: string;
+  room: string;
+  location: string;
+  subLocation: string;
+  status: string;
+  plasmidName: string;
+  primaryBox: string;
+  secondaryBox: string;
+  primaryTube: string;
+  secondaryTube: string;
+  primaryDateDeposited: string;
+  secondaryDateDeposited: string;
+  primaryDepositedBy: string;
+  secondaryDepositedBy: string;
+  primaryPrep: string; // Primary Preparation/Concentration
+  secondaryPrep: string; // Secondary Preparation/Concentration
+  primaryRef: string; // Primary Reference
+  secondaryRef: string; // Secondary Reference
+  system: string;
+  organism: string;
+  gene: string;
+  fragmentSize: string;
+  mutations: string;
+  vector: string;
+  markers: string;
+  antibioticResistance?: string;
+  hosts: string;
+  notebookRef: string;
+  source: string;
+  file: string;
+  freezerIdStr: string;
+  freezerNameStr: string;
+  shelfIdStr: string;
+  shelfNameStr: string;
+  rackIdStr: string;
+  rackName: string;
+  drawerIdStr: string;
+  drawerNameStr: string;
+  categoryId: string;
+  categoryName: string;
+  boxIdStr: string;
+  boxNameStr: string;
+  itemGroupId: string;
+  itemGroupName: string;
+  itemId: string;
+  itemName: string;
+  concentration: string;
+  volumeMass: string;
+  expiresOn: string;
+  createdOn: string;
+  catalogNum: string; // Catalog #
+  packaging: string;
+  price: string;
+  lot: string;
+
+  // Lab safety & inventory management fields (review items 3, 4, 5)
+  ghsHazardCodes?: string[];      // e.g. ["H225", "H319"] — GHS hazard statements
+  sdsUrl?: string;                // URL to Safety Data Sheet
+  storageClass?: string;          // "flammable" | "corrosive" | "oxidizer" | "acid" | "base" | "light-sensitive" | "general"
+  minStockLevel?: number;         // Reorder threshold
+  reorderQty?: number;            // Suggested reorder quantity
+  createdAt?: string;
+}
+
+export interface AuditLog {
+  id: string;
+  timestamp: string; // ISO 8601 string
+  user: string;
+  action: string;
+  description: string;
+}
+
+export interface AuditSnapshot {
+  id: string;
+  logId: string;
+  timestamp: string;
+  user: string;
+  action: string;
+  description: string;
+  // Payload fields are optional — snapshots are stored as lightweight metadata
+  // on disk and in server responses.  Full payloads are only kept in the
+  // client's React state for in-session restore/undo functionality.
+  users?: string[];
+  storageUnits?: StorageUnit[];
+  shelves?: Shelf[];
+  racks?: Rack[];
+  drawers?: Drawer[];
+  boxes?: Box[];
+  samples?: Sample[];
+}
+
+export interface InventoryState {
+  version: number; // Optimistic concurrency control — server increments on each save
+  /** False only on a brand-new install, until the first-run setup wizard configures users. */
+  setupComplete: boolean;
+  users: string[];
+  storageUnits: StorageUnit[];
+  shelves: Shelf[];
+  racks: Rack[];
+  drawers: Drawer[];
+  boxes: Box[];
+  samples: Sample[];
+  auditLogs: AuditLog[];
+  auditSnapshots: AuditSnapshot[];
+}

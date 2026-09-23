@@ -1,0 +1,441 @@
+import { Box, Drawer, Rack, Sample, Shelf, StorageUnit } from "./types.js";
+
+/**
+ * Standard CSV Headers requested by user
+ */
+export const ALL_CSV_HEADERS = [
+  "ChemicalID", "ChemicalName", "CAS Number", "Lab", "Qty", "Units", "Phase", "Room",
+  "Location", "SubLocation", "Status", "Plasmid Name", "Primary Box", "Secondary Box", 
+  "Primary Tube", "Secondary Tube", "Primary Date Deposited", "Secondary Date Deposited", 
+  "Primary Deposited By", "Secondary Deposited By", "Primary Preparation/Concentration", 
+  "Secondary Preparation/Concentration", "Primary Reference", "Secondary Reference", 
+  "System", "Organism", "gene", "Fragment Size", "Mutations", "Vector", "Markers", "Antibiotic Resistance", "Hosts", 
+  "Notebook Reference", "Source", "File", "Freezer ID", "Freezer Name", "Shelf ID", 
+  "Shelf Name", "Rack ID", "Rack Name", "Drawer ID", "Drawer Name", "Category ID", "Category Name", "Box ID", 
+  "Box Name", "Item Group ID", "Item Group Name", "Item ID", "Item Name", "Row", "Column", 
+  "Concentration", "Volume/Mass", "Expires On", "Created On", "Notes", "Catalog #", 
+  "Packaging", "Price", "Lot", "Item Type",
+  "GHS Hazard Codes", "SDS URL", "Storage Class", "Min Stock Level", "Reorder Qty"
+];
+
+/**
+ * Normalizes strings by lowercasing and removing non-alphanumeric characters.
+ * This ensures robust mapping from slightly varying spreadsheet headers.
+ */
+function normalizeHeader(h: string): string {
+  return h.toLowerCase().replace(/[^a-z0-9]/g, "");
+}
+
+/**
+ * Maps normalized CSV headers to the fields on our Sample interface
+ */
+export const HEADER_TO_FIELD_MAP: Record<string, keyof Sample> = {
+  chemicalid: "chemicalId",
+  chemicalname: "chemicalName",
+  casnumber: "casNumber",
+  lab: "lab",
+  qty: "qty",
+  units: "units",
+  phase: "phase",
+  room: "room",
+  rooom: "room", // support user's literal typo
+  location: "location",
+  sublocation: "subLocation",
+  status: "status",
+  plasmidname: "plasmidName",
+  primarybox: "primaryBox",
+  secondarybox: "secondaryBox",
+  primarytube: "primaryTube",
+  secondarytube: "secondaryTube",
+  primarydatedeposited: "primaryDateDeposited",
+  secondarydatedeposited: "secondaryDateDeposited",
+  primarydepositedby: "primaryDepositedBy",
+  secondarydepositedby: "secondaryDepositedBy",
+  primarypreparationconcentration: "primaryPrep",
+  secondarypreparationconcentration: "secondaryPrep",
+  primaryreference: "primaryRef",
+  secondaryreference: "secondaryRef",
+  system: "system",
+  organism: "organism",
+  gene: "gene",
+  fragmentsize: "fragmentSize",
+  mutations: "mutations",
+  vector: "vector",
+  markers: "markers",
+  antibioticresistance: "antibioticResistance",
+  hosts: "hosts",
+  notebookreference: "notebookRef",
+  source: "source",
+  file: "file",
+  freezerid: "freezerIdStr",
+  freezername: "freezerNameStr",
+  shelfid: "shelfIdStr",
+  shelfname: "shelfNameStr",
+  rackid: "rackId",
+  rackname: "rackName",
+  drawerid: "drawerIdStr",
+  drawername: "drawerNameStr",
+  categoryid: "categoryId",
+  categoryname: "categoryName",
+  boxid: "boxIdStr",
+  boxname: "boxNameStr",
+  itemgroupid: "itemGroupId",
+  itemgroupname: "itemGroupName",
+  itemid: "itemId",
+  itemname: "itemName",
+  row: "row",
+  column: "col",
+  concentration: "concentration",
+  volumemass: "volumeMass",
+  expireson: "expiresOn",
+  createdon: "createdOn",
+  notes: "notes",
+  catalog: "catalogNum",
+  catalognum: "catalogNum",
+  packaging: "packaging",
+  price: "price",
+  lot: "lot",
+  itemtype: "itemType",
+  vendor: "source",
+  owner: "primaryDepositedBy",
+  locationdetails: "notes",
+  amountinstock: "qty",
+  amountinstockunits: "units",
+  unitsize: "volumeMass",
+  url: "notebookRef",
+  technicaldetails: "notes",
+  expirationdate: "expiresOn",
+  lotnumber: "lot",
+  alternatename: "chemicalName",
+  ghshazardcodes: "ghsHazardCodes",
+  sdsurl: "sdsUrl",
+  storageclass: "storageClass",
+  minstocklevel: "minStockLevel",
+  reorderqty: "reorderQty"
+};
+
+/**
+ * High quality RFC 4180 compliant CSV parser
+ */
+export function parseCSV(text: string): string[][] {
+  const result: string[][] = [];
+  let row: string[] = [];
+  let cell = '';
+  let inQuotes = false;
+  
+  for (let i = 0; i < text.length; i++) {
+    const char = text[i];
+    const nextChar = text[i + 1];
+    
+    if (inQuotes) {
+      if (char === '"') {
+        if (nextChar === '"') {
+          cell += '"';
+          i++; // Skip the second double quote
+        } else {
+          inQuotes = false;
+        }
+      } else {
+        cell += char;
+      }
+    } else {
+      if (char === '"') {
+        inQuotes = true;
+      } else if (char === ',') {
+        row.push(cell);
+        cell = '';
+      } else if (char === '\n' || char === '\r') {
+        row.push(cell);
+        // Avoid inserting empty lines
+        if (row.length > 1 || row[0] !== '') {
+          result.push(row);
+        }
+        row = [];
+        cell = '';
+        if (char === '\r' && nextChar === '\n') {
+          i++; // Skip the newline character
+        }
+      } else {
+        cell += char;
+      }
+    }
+  }
+  
+  if (cell !== '' || row.length > 0) {
+    row.push(cell);
+    result.push(row);
+  }
+  
+  return result;
+}
+
+/**
+ * Escapes a cell value for CSV formatting
+ */
+export function escapeCSVCell(value: any): string {
+  if (value === null || value === undefined) return '';
+  // Arrays (e.g. ghsHazardCodes) are joined with semicolons
+  if (Array.isArray(value)) return escapeCSVCell(value.join(";"));
+  const str = String(value);
+  if (str.includes(',') || str.includes('"') || str.includes('\n') || str.includes('\r')) {
+    return `"${str.replace(/"/g, '""')}"`;
+  }
+  return str;
+}
+
+/**
+ * Converts a list of Samples back to a full CSV String
+ */
+export function convertSamplesToCSV(samples: Sample[]): string {
+  const lines: string[] = [];
+
+  // Header line
+  lines.push(ALL_CSV_HEADERS.join(","));
+  
+  // Row lines
+  for (const sample of samples) {
+    lines.push(buildSampleCsvRow(sample).join(","));
+  }
+  
+  return lines.join("\n");
+}
+
+type InventoryCsvLookups = {
+  storageUnits: StorageUnit[];
+  shelves: Shelf[];
+  racks: Rack[];
+  drawers: Drawer[];
+  boxes: Box[];
+};
+
+export function syncSamplesToBoxLocation(samples: Sample[], box: Pick<Box, "id" | "storageId" | "shelfId" | "rackId" | "drawerId">): Sample[] {
+  return samples.map(sample => {
+    if (sample.boxId !== box.id) return sample;
+
+    return {
+      ...sample,
+      storageId: box.storageId,
+      shelfId: box.shelfId,
+      rackId: box.rackId ?? null,
+      drawerId: box.drawerId ?? null
+    };
+  });
+}
+
+function buildSampleCsvRow(sample: Sample, lookups?: InventoryCsvLookups): string[] {
+  const storageUnit = lookups?.storageUnits.find(unit => unit.id === sample.storageId);
+  const shelf = lookups?.shelves.find(item => item.id === sample.shelfId);
+  const rack = sample.rackId && lookups?.racks ? lookups.racks.find(item => item.id === sample.rackId) : undefined;
+  const drawer = sample.drawerId && lookups?.drawers ? lookups.drawers.find(item => item.id === sample.drawerId) : undefined;
+  const box = sample.boxId && lookups?.boxes ? lookups.boxes.find(item => item.id === sample.boxId) : undefined;
+
+  const combinedLocation = [storageUnit?.name, shelf?.name, rack?.name, drawer?.name, box?.name].filter(Boolean).join(" / ");
+
+  const valuesByHeader: Record<string, any> = {
+    chemicalid: sample.chemicalId,
+    chemicalname: sample.chemicalName,
+    casnumber: sample.casNumber,
+    lab: sample.lab,
+    qty: sample.qty,
+    units: sample.units,
+    phase: sample.phase,
+    room: sample.room,
+    location: sample.location || combinedLocation,
+    sublocation: sample.subLocation || combinedLocation,
+    status: sample.status,
+    plasmidname: sample.plasmidName,
+    primarybox: sample.primaryBox,
+    secondarybox: sample.secondaryBox,
+    primarytube: sample.primaryTube,
+    secondarytube: sample.secondaryTube,
+    primarydatedeposited: sample.primaryDateDeposited,
+    secondarydatedeposited: sample.secondaryDateDeposited,
+    primarydepositedby: sample.primaryDepositedBy,
+    secondarydepositedby: sample.secondaryDepositedBy,
+    primarypreparationconcentration: sample.primaryPrep,
+    secondarypreparationconcentration: sample.secondaryPrep,
+    primaryreference: sample.primaryRef,
+    secondaryreference: sample.secondaryRef,
+    system: sample.system,
+    organism: sample.organism,
+    gene: sample.gene,
+    fragmentsize: sample.fragmentSize,
+    mutations: sample.mutations,
+    vector: sample.vector,
+    markers: sample.markers,
+    antibioticresistance: sample.antibioticResistance,
+    hosts: sample.hosts,
+    notebookreference: sample.notebookRef,
+    source: sample.source,
+    file: sample.file,
+    freezerid: sample.freezerIdStr || storageUnit?.id || "",
+    freezername: sample.freezerNameStr || storageUnit?.name || "",
+    shelfid: sample.shelfIdStr || shelf?.id || "",
+    shelfname: sample.shelfNameStr || shelf?.name || "",
+    rackid: sample.rackIdStr || rack?.id || "",
+    rackname: sample.rackName || rack?.name || "",
+    drawerid: sample.drawerIdStr || drawer?.id || "",
+    drawername: sample.drawerNameStr || drawer?.name || "",
+    categoryid: sample.categoryId,
+    categoryname: sample.categoryName,
+    boxid: sample.boxId || sample.boxIdStr || box?.id || "",
+    boxname: sample.boxNameStr || box?.name || "",
+    itemgroupid: sample.itemGroupId,
+    itemgroupname: sample.itemGroupName,
+    itemid: sample.itemId,
+    itemname: sample.itemName || sample.chemicalName || "",
+    row: sample.row,
+    column: sample.col,
+    concentration: sample.concentration,
+    volumemass: sample.volumeMass,
+    expireson: sample.expiresOn,
+    createdon: sample.createdOn,
+    notes: sample.notes,
+    catalog: sample.catalogNum,
+    packaging: sample.packaging,
+    price: sample.price,
+    lot: sample.lot,
+    itemtype: sample.itemType || (box ? "Sample" : ""),
+    ghshazardcodes: sample.ghsHazardCodes,
+    sdsurl: sample.sdsUrl,
+    storageclass: sample.storageClass,
+    minstocklevel: sample.minStockLevel,
+    reorderqty: sample.reorderQty
+  };
+
+  return ALL_CSV_HEADERS.map(header => {
+    const norm = normalizeHeader(header);
+    return escapeCSVCell(valuesByHeader[norm] ?? "");
+  });
+}
+
+function buildBoxCsvRow(box: Box, lookups: InventoryCsvLookups): string[] {
+  const storageUnit = lookups.storageUnits.find(unit => unit.id === box.storageId);
+  const shelf = lookups.shelves.find(item => item.id === box.shelfId);
+  const rack = box.rackId ? lookups.racks.find(item => item.id === box.rackId) : undefined;
+  const drawer = box.drawerId ? lookups.drawers.find(item => item.id === box.drawerId) : undefined;
+  const locationParts = [storageUnit?.name, shelf?.name, rack?.name, drawer?.name, box.name].filter(Boolean);
+
+  const valuesByHeader: Record<string, string> = {
+    chemicalid: "",
+    chemicalname: "",
+    casnumber: "",
+    lab: "",
+    qty: "",
+    units: "",
+    phase: "",
+    room: "",
+    location: storageUnit?.name || "",
+    sublocation: locationParts.slice(1).join(" / "),
+    status: box.isArchived ? "Archived" : "Box",
+    plasmidname: "",
+    primarybox: "",
+    secondarybox: "",
+    primarytube: "",
+    secondarytube: "",
+    primarydatedeposited: "",
+    secondarydatedeposited: "",
+    primarydepositedby: "",
+    secondarydepositedby: "",
+    primarypreparationconcentration: "",
+    secondarypreparationconcentration: "",
+    primaryreference: "",
+    secondaryreference: "",
+    system: "",
+    organism: "",
+    gene: "",
+    fragmentsize: "",
+    mutations: "",
+    vector: "",
+    markers: "",
+    antibioticresistance: "",
+    hosts: "",
+    notebookreference: "",
+    source: "",
+    file: "",
+    freezerid: storageUnit?.id || "",
+    freezername: storageUnit?.name || "",
+    shelfid: shelf?.id || "",
+    shelfname: shelf?.name || "",
+    rackid: rack?.id || "",
+    rackname: rack?.name || "",
+    drawerid: drawer?.id || "",
+    drawername: drawer?.name || "",
+    categoryid: "",
+    categoryname: "",
+    boxid: box.id,
+    boxname: box.name,
+    itemgroupid: "",
+    itemgroupname: "",
+    itemid: box.id,
+    itemname: box.name,
+    row: "",
+    column: "",
+    concentration: "",
+    volumemass: box.rows && box.cols ? `${box.rows}x${box.cols}` : "",
+    expireson: "",
+    createdon: "",
+    notes: box.rows && box.cols ? `${box.rows}x${box.cols} grid box` : "",
+    catalog: "",
+    packaging: "",
+    price: "",
+    lot: "",
+    itemtype: "Box",
+    ghshazardcodes: "",
+    sdsurl: "",
+    storageclass: "",
+    minstocklevel: "",
+    reorderqty: ""
+  };
+
+  return ALL_CSV_HEADERS.map(header => escapeCSVCell(valuesByHeader[normalizeHeader(header)] || ""));
+}
+
+/**
+ * Converts active samples and boxes back to a full CSV String.
+ */
+export function convertInventoryToCSV(
+  samples: Sample[],
+  boxes: Box[],
+  lookups: InventoryCsvLookups
+): string {
+  const lines: string[] = [ALL_CSV_HEADERS.join(",")];
+  const inventoryLookups: InventoryCsvLookups = { ...lookups, boxes };
+
+  for (const box of boxes) {
+    lines.push(buildBoxCsvRow(box, inventoryLookups).join(","));
+  }
+
+  for (const sample of samples) {
+    lines.push(buildSampleCsvRow(sample, inventoryLookups).join(","));
+  }
+
+  return lines.join("\n");
+}
+
+/**
+ * Map field name to full user-friendly label
+ */
+export function getFieldLabel(field: keyof Sample): string {
+  // Find matching CSV header
+  for (const header of ALL_CSV_HEADERS) {
+    const norm = normalizeHeader(header);
+    if (HEADER_TO_FIELD_MAP[norm] === field) {
+      return header;
+    }
+  }
+  
+  // Fallbacks
+  switch (field) {
+    case 'chemicalName': return 'Chemical Name';
+    case 'casNumber': return 'CAS Number';
+    case 'qty': return 'Quantity';
+    case 'units': return 'Units';
+    case 'itemType': return 'Item Type';
+    case 'catalogNum': return 'Catalog #';
+    case 'volumeMass': return 'Volume/Mass';
+    case 'primaryPrep': return 'Primary Prep/Concentration';
+    case 'secondaryPrep': return 'Secondary Prep/Concentration';
+    default: return String(field);
+  }
+}
