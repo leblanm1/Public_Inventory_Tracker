@@ -14,7 +14,16 @@ import { syncSamplesToBoxLocation } from "./src/utils.js";
 // Helper to get directory path
 const __dirname = path.resolve();
 const LEGACY_DATA_DIR = path.join(__dirname, "data");
-const DATA_DIR = process.env.INVENTORY_DATA_DIR || path.join(os.homedir(), "Library", "Application Support", "Lab Inventory Tracker");
+function getDefaultDataDir(): string {
+  if (process.platform === "win32") {
+    return path.join(process.env.APPDATA || path.join(os.homedir(), "AppData", "Roaming"), "Lab Inventory Tracker");
+  }
+  if (process.platform === "darwin") {
+    return path.join(os.homedir(), "Library", "Application Support", "Lab Inventory Tracker");
+  }
+  return path.join(process.env.XDG_DATA_HOME || path.join(os.homedir(), ".local", "share"), "Lab Inventory Tracker");
+}
+const DATA_DIR = process.env.INVENTORY_DATA_DIR || getDefaultDataDir();
 const DATA_FILE = path.join(DATA_DIR, "inventory.json");
 const SNAPSHOT_ARCHIVE_FILE = path.join(DATA_DIR, "audit-snapshots.json");
 const IMMUTABLE_BACKUP_DIR = process.env.INVENTORY_IMMUTABLE_BACKUP_DIR || path.join(DATA_DIR, "immutable-backups");
@@ -823,7 +832,7 @@ async function startServer() {
   const portFromEnv = Number(process.env.PORT);
   const requestedPort = Number.isFinite(portFromEnv) && portFromEnv > 0 ? portFromEnv : 3000;
   const isDev = process.env.NODE_ENV !== "production";
-  const PORT = isDev ? await findAvailablePort(requestedPort) : requestedPort;
+  const PORT = await findAvailablePort(requestedPort);
 
   const hmrPortFromEnv = Number(process.env.HMR_PORT);
   const requestedHmrPort = Number.isFinite(hmrPortFromEnv) && hmrPortFromEnv > 0 ? hmrPortFromEnv : 24678;
@@ -1842,7 +1851,7 @@ async function startServer() {
     app.use(vite.middlewares);
   } else {
     // Serve production static assets
-    const distPath = path.join(__dirname, "dist");
+    const distPath = __dirname.endsWith(`${path.sep}dist`) ? __dirname : path.join(__dirname, "dist");
     app.use(express.static(distPath));
     app.get("*", (req, res) => {
       res.sendFile(path.join(distPath, "index.html"));

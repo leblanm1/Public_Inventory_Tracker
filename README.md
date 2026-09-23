@@ -462,6 +462,30 @@ NODE_ENV=production npm start
 
 The production server serves static assets from `dist/` and runs the bundled server. Set `LAB_PASSPHRASE` if the server needs to be accessible over the network.
 
+### Build Desktop Packages
+
+The repository can produce a desktop application that bundles Electron and the
+Node runtime. End users do not need to install Git or Node.js.
+
+```bash
+npm run package       # package for the current operating system
+npm run package:mac   # macOS: DMG and ZIP
+npm run package:win   # Windows: installer and portable executable
+npm run package:linux # Linux: AppImage and Debian package
+```
+
+The output is written to `release/`. Build on each target operating system for
+the best result: macOS packages should be built on macOS, Windows packages on
+Windows, and Linux packages on Linux. macOS distribution requires Apple
+Developer ID signing and notarization; Windows distribution should use an
+Authenticode certificate to avoid security warnings. Unsigned packages are
+appropriate for local testing but may be blocked or shown as untrusted when
+downloaded by other users.
+
+The packaged application always keeps local immutable backups. The current
+package does not require GitHub or a Git installation; GitHub off-site sync
+remains an optional follow-up feature to implement through the GitHub API.
+
 ### Quick Reference
 
 | Command | Description |
@@ -473,6 +497,7 @@ The production server serves static assets from `dist/` and runs the bundled ser
 | `npm run lint` | TypeScript type checking (`tsc --noEmit`). |
 | `npm run backup:now` | Create today's immutable backup without starting the server. |
 | `npm run backup:git` | Create backups + push compressed archives to a Git branch. |
+| `npm run package` | Build a desktop package for the current operating system. |
 
 ---
 

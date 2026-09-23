@@ -132,6 +132,39 @@ Node.js. The deployment administrator must configure `LAB_PASSPHRASE`, HTTPS,
 persistent storage, and backups. The current repository does not include a
 hosted service or a packaged desktop executable.
 
+### Packaged desktop application
+
+Maintainers can create a standalone desktop package after installing the
+development prerequisites once:
+
+```bash
+npm install
+npm run package
+```
+
+The package is written to the `release/` directory and includes Electron, the
+Node runtime, the built UI, and the local server. End users run the resulting
+installer or portable application without installing Git, Node.js, or npm.
+
+Use the platform-specific commands when preparing releases:
+
+```bash
+npm run package:mac
+npm run package:win
+npm run package:linux
+```
+
+Build each platform on that platform. Production distribution also requires
+code signing: Apple Developer ID signing and notarization for macOS, and an
+Authenticode certificate for Windows. Without signing, the package is still
+usable for local testing but operating systems may display an unknown-publisher
+warning.
+
+The packaged application creates local immutable JSON and Excel backups by
+default. GitHub synchronization is not required and is not yet part of the
+desktop package; it can be added later through GitHub's API so users do not
+need to install Git.
+
 ## 3. Clone the repository
 
 ```bash
