@@ -8,7 +8,7 @@ Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
 
 $resolvedRepoPath = (Resolve-Path $RepoPath).Path
-$mutex = [System.Threading.Mutex]::new($false, "SousaLabInventoryTrackerTray")
+$mutex = [System.Threading.Mutex]::new($false, "LabInventoryTrackerTray")
 $ownsMutex = $false
 
 try {

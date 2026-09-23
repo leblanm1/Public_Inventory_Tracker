@@ -165,7 +165,7 @@ All configuration is via environment variables. Copy `.env.example` to `.env` an
 | `PORT` | `3000` | Port the server listens on. In dev mode, if the port is busy the server auto-finds the next available one. |
 | `HMR_PORT` | `24678` | Vite hot-module-replacement port (dev mode only). |
 | `LAB_PASSPHRASE` | *(unset)* | If set, the server binds to `0.0.0.0` (all network interfaces) and requires an `Authorization: Bearer <passphrase>` header on all API requests. If unset, the server binds to `127.0.0.1` (localhost only) for maximum security. |
-| `INVENTORY_DATA_DIR` | macOS: `~/Library/Application Support/Sousa Lab Inventory` | Directory where `inventory.json` and `audit-snapshots.json` are stored. |
+| `INVENTORY_DATA_DIR` | macOS: `~/Library/Application Support/Lab Inventory Tracker` | Directory where `inventory.json` and `audit-snapshots.json` are stored. |
 | `INVENTORY_IMMUTABLE_BACKUP_DIR` | `<INVENTORY_DATA_DIR>/immutable-backups` | Directory where daily immutable backup files are written. |
 | `NODE_ENV` | *(unset = dev mode)* | Set to `production` for production mode (serves built static assets, no Vite HMR). |
 
