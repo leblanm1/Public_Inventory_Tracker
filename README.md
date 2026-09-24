@@ -6,24 +6,48 @@ Runs as a local web app. No database to install — all data is stored in a JSON
 
 ## Quick Start
 
-### Fastest option: install the desktop app
+### Prerequisites
 
-- Windows: build and run `npm run package:win`, then launch the generated `.exe` from `release/`.
-- macOS: build and run `npm run package:mac`, then open the generated app or `.dmg` from `release/`.
-- No Node.js or Git install is needed on the target machine.
+- [Node.js](https://nodejs.org/) 18 or later (includes `npm`).
+- [Git](https://git-scm.com/downloads).
 
-### Run from source
+### Install
+
+Open a terminal (macOS: Terminal; Windows: PowerShell) and run:
 
 ```bash
 git clone https://github.com/leblanm1/Inventory_Tracker.git
 cd Inventory_Tracker
 npm install
+```
+
+> Windows PowerShell note: if `npm install` is blocked by the execution policy, run `cmd /c npm install` from the repo root instead.
+
+### Run
+
+```bash
 npm run dev
 ```
 
-Then open `http://localhost:3000`.
+Then open `http://localhost:3000` in your browser. Leave the terminal window open — closing it stops the server.
 
-> Windows PowerShell note: if `npm install` is blocked, run `cmd /c npm install` from the repo root.
+To stop the server, press `Ctrl+C` in the terminal.
+
+### Run again later
+
+You don't need to reinstall anything. From the repo folder:
+
+```bash
+npm run dev
+```
+
+If you want the latest updates first:
+
+```bash
+git pull
+npm install
+npm run dev
+```
 
 ---
 
@@ -373,36 +397,6 @@ NODE_ENV=production npm start
 ```
 
 The production server serves static assets from `dist/` and runs the bundled server. Set `LAB_PASSPHRASE` if the server needs to be accessible over the network.
-
-### Build Desktop Packages
-
-The repository can produce a desktop application that bundles Electron and the
-Node runtime. End users do not need to install Git or Node.js.
-
-```bash
-npm run package       # package for the current operating system
-npm run package:mac   # macOS: DMG and ZIP
-npm run package:win   # Windows: installer and portable executable
-npm run package:linux # Linux: AppImage and Debian package
-```
-
-The output is written to `release/`. Build on each target operating system for
-the best result: macOS packages should be built on macOS, Windows packages on
-Windows, and Linux packages on Linux. macOS distribution requires Apple
-Developer ID signing and notarization; Windows distribution should use an
-Authenticode certificate to avoid security warnings. Unsigned packages are
-appropriate for local testing but may be blocked or shown as untrusted when
-downloaded by other users.
-
-The packaged application always keeps local immutable backups. The package
-does not require GitHub or a Git installation. From the Backup Export menu,
-users can optionally upload the day's JSON, Excel, and manifest backups to a
-GitHub repository through the GitHub API. The token is requested for that
-upload only and is not saved in the inventory data.
-
-For GitHub uploads, create a fine-grained personal access token limited to the
-selected repository with **Contents: Read and write** permission. A GitHub
-account is not required when using local backups only.
 
 ### Quick Reference
 
