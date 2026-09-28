@@ -113,12 +113,16 @@ export default function App() {
   const [searchDetailOpen, setSearchDetailOpen] = useState(false);
   const [searchKindFilters, setSearchKindFilters] = useState<Array<SearchResult["kind"]>>([
     "sample",
-    "storage",
-    "shelf",
-    "rack",
     "drawer",
     "box"
   ]);
+  const [searchCategoryFilters, setSearchCategoryFilters] = useState<Array<SampleCategory>>([
+    "plasmid",
+    "chemical",
+    "reagent",
+    "protein"
+  ]);
+  const [searchDepositingUser, setSearchDepositingUser] = useState("");
   const [searchDateFrom, setSearchDateFrom] = useState("");
   const [searchDateTo, setSearchDateTo] = useState("");
   const [searchSortMode, setSearchSortMode] = useState<"relevance" | "newest" | "oldest">("relevance");
@@ -1695,19 +1699,36 @@ export default function App() {
 
   type SearchResult =
     | { kind: "sample"; sample: Sample }
-    | { kind: "storage"; storage: StorageUnit }
-    | { kind: "shelf"; shelf: Shelf; storage?: StorageUnit }
-    | { kind: "rack"; rack: Rack; shelf?: Shelf; storage?: StorageUnit }
     | { kind: "drawer"; drawer: Drawer; rack?: Rack; shelf?: Shelf; storage?: StorageUnit }
     | { kind: "box"; box: Box; drawer?: Drawer; rack?: Rack; shelf?: Shelf; storage?: StorageUnit };
 
   type SampleSearchResult = Extract<SearchResult, { kind: "sample" }>;
 
+  type SampleCategory = "plasmid" | "chemical" | "reagent" | "protein";
+
+  const SEARCH_CATEGORY_LABELS: Record<SampleCategory, string> = {
+    plasmid: "Plasmids",
+    chemical: "Chemicals",
+    reagent: "Reagents",
+    protein: "Proteins",
+  };
+
+  // Classifies a sample by its itemType (or plasmid-naming heuristics) for the category search filters.
+  const getSampleCategory = (sample: Sample): SampleCategory | null => {
+    const normalizedType = (sample.itemType || "").trim().toLowerCase();
+    if (normalizedType === "plasmid") return "plasmid";
+    if (normalizedType === "chemical") return "chemical";
+    if (normalizedType === "reagent") return "reagent";
+    if (normalizedType === "protein") return "protein";
+    const isPlasmidLike = /^pms/i.test((sample.chemicalName || "").trim())
+      || /plasmid/i.test(normalizedType)
+      || Boolean((sample.plasmidName || "").trim());
+    if (isPlasmidLike) return "plasmid";
+    return null;
+  };
+
   const SEARCH_RESULT_KIND_LABELS: Record<SearchResult["kind"], string> = {
     sample: "Sample",
-    storage: "Storage",
-    shelf: "Shelf",
-    rack: "Rack",
     drawer: "Drawer",
     box: "Box",
   };
@@ -1716,12 +1737,6 @@ export default function App() {
     switch (result.kind) {
       case "sample":
         return result.sample.chemicalName || result.sample.chemicalId || "Sample";
-      case "storage":
-        return result.storage.name;
-      case "shelf":
-        return result.shelf.name;
-      case "rack":
-        return result.rack.name;
       case "drawer":
         return result.drawer.name;
       case "box":
@@ -1741,12 +1756,6 @@ export default function App() {
           .filter(Boolean)
           .join(" > ");
       }
-      case "storage":
-        return result.storage.name;
-      case "shelf":
-        return [result.storage?.name, result.shelf.name].filter(Boolean).join(" > ");
-      case "rack":
-        return [result.storage?.name, result.shelf?.name, result.rack.name].filter(Boolean).join(" > ");
       case "drawer":
         return [result.storage?.name, result.shelf?.name, result.rack?.name, result.drawer.name].filter(Boolean).join(" > ");
       case "box":
@@ -1766,12 +1775,6 @@ export default function App() {
       switch (result.kind) {
         case "sample":
           return result.sample.createdAt || null;
-        case "storage":
-          return result.storage.createdAt || null;
-        case "shelf":
-          return result.shelf.createdAt || null;
-        case "rack":
-          return result.rack.createdAt || null;
         case "drawer":
           return result.drawer.createdAt || null;
         case "box":
@@ -1788,12 +1791,6 @@ export default function App() {
       switch (result.kind) {
         case "sample":
           return result.sample.id;
-        case "storage":
-          return result.storage.id;
-        case "shelf":
-          return result.shelf.id;
-        case "rack":
-          return result.rack.id;
         case "drawer":
           return result.drawer.id;
         case "box":
@@ -1818,6 +1815,14 @@ export default function App() {
     ));
   };
 
+  const toggleSearchCategoryFilter = (category: SampleCategory) => {
+    setSearchCategoryFilters(prev => (
+      prev.includes(category)
+        ? prev.filter(item => item !== category)
+        : [...prev, category]
+    ));
+  };
+
   // Universal Filter / Search logic — Fuse.js fuzzy search (review item 11)
   // Create memoized Fuse instances for each entity type. Threshold 0.4 gives
   // good typo tolerance without too many false positives.
@@ -1826,28 +1831,13 @@ export default function App() {
     {
       keys: [
         "chemicalId", "chemicalName", "casNumber", "itemType", "notes", "plasmidName",
-        "organism", "gene", "primaryDepositedBy", "catalogNum", "lot",
+        "organism", "gene", "primaryDepositedBy", "catalogNum", "lot", "createdBy",
       ],
       threshold: 0.4,
       ignoreLocation: true,
       minMatchCharLength: 2,
     }
   ), [state.samples]);
-
-  const storageFuse = useMemo(() => new Fuse(
-    state.storageUnits.filter(u => !u.isArchived),
-    { keys: ["name", "type"], threshold: 0.4, ignoreLocation: true }
-  ), [state.storageUnits]);
-
-  const shelfFuse = useMemo(() => new Fuse(
-    state.shelves.filter(s => !s.isArchived),
-    { keys: ["name"], threshold: 0.4, ignoreLocation: true }
-  ), [state.shelves]);
-
-  const rackFuse = useMemo(() => new Fuse(
-    state.racks.filter(r => !r.isArchived),
-    { keys: ["name"], threshold: 0.4, ignoreLocation: true }
-  ), [state.racks]);
 
   const drawerFuse = useMemo(() => new Fuse(
     state.drawers.filter(d => !d.isArchived),
@@ -1882,27 +1872,6 @@ export default function App() {
     });
     const sampleMatches: SearchResult[] = Array.from(sampleMatchesById.values());
 
-    const storageMatches: SearchResult[] = storageFuse
-      .search(query)
-      .map(result => ({ kind: "storage" as const, storage: result.item }));
-
-    const shelfMatches: SearchResult[] = shelfFuse
-      .search(query)
-      .map(result => ({
-        kind: "shelf" as const,
-        shelf: result.item,
-        storage: state.storageUnits.find(u => u.id === result.item.storageId)
-      }));
-
-    const rackMatches: SearchResult[] = rackFuse
-      .search(query)
-      .map(result => ({
-        kind: "rack" as const,
-        rack: result.item,
-        shelf: state.shelves.find(s => s.id === result.item.shelfId),
-        storage: state.storageUnits.find(u => u.id === result.item.storageId)
-      }));
-
     const drawerMatches: SearchResult[] = drawerFuse
       .search(query)
       .map(result => ({
@@ -1926,17 +1895,11 @@ export default function App() {
 
     return [
       ...sampleMatches,
-      ...storageMatches,
-      ...shelfMatches,
-      ...rackMatches,
       ...drawerMatches,
       ...boxMatches
     ];
   }, [
     sampleFuse,
-    storageFuse,
-    shelfFuse,
-    rackFuse,
     drawerFuse,
     boxFuse,
     state.storageUnits,
@@ -1952,6 +1915,16 @@ export default function App() {
 
     const filtered = searchResults.filter(result => {
       if (!searchKindFilters.includes(result.kind)) return false;
+
+      if (result.kind === "sample") {
+        const category = getSampleCategory(result.sample);
+        if (category && !searchCategoryFilters.includes(category)) return false;
+
+        if (searchDepositingUser) {
+          const depositor = (result.sample.createdBy || result.sample.primaryDepositedBy || "").trim();
+          if (depositor.toLowerCase() !== searchDepositingUser.trim().toLowerCase()) return false;
+        }
+      }
 
       const addedAt = getSearchResultAddedAt(result);
       if (fromTimestamp !== null && (addedAt === null || addedAt < fromTimestamp)) return false;
@@ -1973,7 +1946,17 @@ export default function App() {
     });
 
     return withDate.map(entry => entry.result);
-  }, [searchResults, searchKindFilters, searchDateFrom, searchDateTo, searchSortMode]);
+  }, [searchResults, searchKindFilters, searchCategoryFilters, searchDepositingUser, searchDateFrom, searchDateTo, searchSortMode]);
+
+  // All known depositing users for the search filter dropdown — app users plus any legacy depositor names found on samples.
+  const depositingUserOptions = useMemo(() => {
+    const names = new Set<string>(state.users.filter(Boolean));
+    state.samples.forEach(sample => {
+      const depositor = (sample.createdBy || sample.primaryDepositedBy || "").trim();
+      if (depositor) names.add(depositor);
+    });
+    return Array.from(names).sort((a, b) => a.localeCompare(b, undefined, { sensitivity: "base" }));
+  }, [state.users, state.samples]);
 
   useEffect(() => {
     if (!searchQuery.trim()) {
@@ -2045,33 +2028,6 @@ export default function App() {
     }
 
     setSelectedSampleId(null);
-
-    if (result.kind === "storage") {
-      setSelectedStorageId(result.storage.id);
-      setSelectedShelfId("");
-      setSelectedRackId("");
-      setSelectedDrawerId("");
-      setSelectedBoxId(null);
-      return;
-    }
-
-    if (result.kind === "shelf") {
-      setSelectedStorageId(result.shelf.storageId);
-      setSelectedShelfId(result.shelf.id);
-      setSelectedRackId("");
-      setSelectedDrawerId("");
-      setSelectedBoxId(null);
-      return;
-    }
-
-    if (result.kind === "rack") {
-      setSelectedStorageId(result.rack.storageId);
-      setSelectedShelfId(result.rack.shelfId);
-      setSelectedRackId(result.rack.id);
-      setSelectedDrawerId("");
-      setSelectedBoxId(null);
-      return;
-    }
 
     if (result.kind === "drawer") {
       setSelectedStorageId(result.drawer.storageId);
@@ -4109,7 +4065,7 @@ export default function App() {
                 </button>
               </div>
 
-              <div className="mt-4 grid gap-3 lg:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)_minmax(0,1fr)_auto] items-end">
+              <div className="mt-4 grid gap-3 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1.1fr)_minmax(0,0.9fr)_minmax(0,0.55fr)_minmax(0,0.7fr)_auto] items-end">
                 <div>
                   <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-2">Entity Type</div>
                   <div className="flex flex-wrap gap-2">
@@ -4127,7 +4083,32 @@ export default function App() {
                       </button>
                     ))}
                     <button
-                      onClick={() => setSearchKindFilters(["sample", "storage", "shelf", "rack", "drawer", "box"])}
+                      onClick={() => setSearchKindFilters(["sample", "drawer", "box"])}
+                      className="px-3 py-1.5 rounded-full text-xs font-semibold bg-slate-100 text-slate-600 border border-slate-200 hover:bg-slate-200 transition-colors"
+                    >
+                      Select all
+                    </button>
+                  </div>
+                </div>
+
+                <div>
+                  <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-2">Sample Category</div>
+                  <div className="flex flex-wrap gap-2">
+                    {(Object.keys(SEARCH_CATEGORY_LABELS) as Array<SampleCategory>).map(category => (
+                      <button
+                        key={category}
+                        onClick={() => toggleSearchCategoryFilter(category)}
+                        className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors ${
+                          searchCategoryFilters.includes(category)
+                            ? "bg-indigo-600 text-white border-indigo-600"
+                            : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"
+                        }`}
+                      >
+                        {SEARCH_CATEGORY_LABELS[category]}
+                      </button>
+                    ))}
+                    <button
+                      onClick={() => setSearchCategoryFilters(["plasmid", "chemical", "reagent", "protein"])}
                       className="px-3 py-1.5 rounded-full text-xs font-semibold bg-slate-100 text-slate-600 border border-slate-200 hover:bg-slate-200 transition-colors"
                     >
                       Select all
@@ -4136,24 +4117,39 @@ export default function App() {
                 </div>
 
                 <label className="block">
-                  <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-2">Added From</div>
-                  <input
-                    type="date"
-                    value={searchDateFrom}
-                    onChange={e => setSearchDateFrom(e.target.value)}
+                  <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-2">Deposited By</div>
+                  <select
+                    value={searchDepositingUser}
+                    onChange={e => setSearchDepositingUser(e.target.value)}
                     className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-700 outline-hidden focus:ring-2 focus:ring-indigo-500/20"
-                  />
+                  >
+                    <option value="">All Users</option>
+                    {depositingUserOptions.map(userName => (
+                      <option key={userName} value={userName}>{userName}</option>
+                    ))}
+                  </select>
                 </label>
 
-                <label className="block">
-                  <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-2">Added To</div>
-                  <input
-                    type="date"
-                    value={searchDateTo}
-                    onChange={e => setSearchDateTo(e.target.value)}
-                    className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-700 outline-hidden focus:ring-2 focus:ring-indigo-500/20"
-                  />
-                </label>
+                <div>
+                  <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-2">Added</div>
+                  <div className="flex items-center gap-1">
+                    <input
+                      type="date"
+                      title="Added from"
+                      value={searchDateFrom}
+                      onChange={e => setSearchDateFrom(e.target.value)}
+                      className="w-24 rounded-lg border border-slate-200 bg-white px-1.5 py-1 text-[11px] text-slate-700 outline-hidden focus:ring-2 focus:ring-indigo-500/20"
+                    />
+                    <span className="text-[10px] text-slate-400">–</span>
+                    <input
+                      type="date"
+                      title="Added to"
+                      value={searchDateTo}
+                      onChange={e => setSearchDateTo(e.target.value)}
+                      className="w-24 rounded-lg border border-slate-200 bg-white px-1.5 py-1 text-[11px] text-slate-700 outline-hidden focus:ring-2 focus:ring-indigo-500/20"
+                    />
+                  </div>
+                </div>
 
                 <label className="block">
                   <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-2">Sort</div>
